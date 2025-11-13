@@ -1,0 +1,12 @@
+
+*
+
+!.gitignore
+!index.html
+
+node_modules/
+dist/
+modules/
+*.log
+.DS_Store
+Thumbs.db
