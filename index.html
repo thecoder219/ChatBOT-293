@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DemoMed AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Kontora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="starting-body">
+  <div class="glow-orb orb-1"></div>
+  <div class="glow-orb orb-2"></div>
+  <div class="glow-orb orb-3"></div>
+  <div class="mesh-gradient"></div>
+  <div class="grid-bg"></div>
+  <div class="intro-wrapper">
+    <div class="intro-card" id="introCard">
+      <div class="intro-header">
+        <div class="intro-logo"><img src="logo.png" alt="DemoMed AI logo"></div>
+        <div class="intro-title">Welcome to DemoMed AI</div>
+      </div>
+      <div class="intro-body">
+        <p class="intro-subtitle">DemoMed AI is a chatbot created as a practical project.</p>
+        <div class="highlight-strip">
+          <span class="highlight-pill">AI Practical Project</span>
+          <span class="highlight-pill">SAMPLE AI CHATBOT</span>
+          <span class="highlight-pill">Built by Students</span>
+        </div>
+        <div class="disclaimer-note">This is an educational prototype created by Class 10 students of LKCRMS. Responses are not confirmed and should not guide real medical decisions.</div>
+      </div>
+      <div class="intro-actions">
+        <button class="primary-btn" id="enterBtn">Enter DemoMed AI</button>
+        <button class="ghost-btn" id="disclaimerBtn">Read Disclaimer</button>
+      </div>
+      <label class="skip-intro">
+        <input type="checkbox" id="skipToggle">Skip this intro next time
+      </label>
+    </div>
+  </div>
+  <div class="name-form-modal" id="nameFormModal">
+    <div class="form-container">
+      <div class="logo-container">Please enter your name to enter DemoMed AI</div>
+      <form class="form" id="nameForm">
+        <div class="form-group">
+          <label for="userName">Name</label>
+          <input type="text" id="userName" name="userName" placeholder="Enter your name" required autocomplete="name">
+        </div>
+        <button class="form-submit-btn" type="submit">Start</button>
+      </form>
+    </div>
+  </div>
+  <div class="modal" id="disclaimerModal">
+    <div class="modal-card">
+      <h2>Important Disclaimer</h2>
+      <ul>
+        <li>This is a demo prototype for educational purposes only.</li>
+        <li>It is not a certified medical system and may produce inaccurate results.</li>
+        <li>Do not rely on responses for diagnosis or treatment.</li>
+        <li>Always consult qualified healthcare professionals for medical advice.</li>
+        <li>Creators are not responsible for misuse or misinterpretation.</li>
+      </ul>
+      <button type="button" id="closeDisclaimer">Got it</button>
+    </div>
+  </div>
+  <script src="script.js" defer></script>
+</body>
+</html>
+
