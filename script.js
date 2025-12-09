@@ -3,7 +3,7 @@
 // THE API KEY I HAVE USED, WILL BE DELETED ONCE DEMOMED SITE GOES OFFLINE. BETTER DON'T ATTEMPT TAMPERING!
 (function () {
   const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-  const ENCODED_KEY = 'c2stb3ItdjEtNTQ3MmE0YWVmYTUyN2M4NTNhYWU5Nzk0NDc0MTZkYmZhZTg3ZjRlNjE5NWYyYjdkODk3NWYxNDVkN2I4MDkwZQ==';
+  const ENCODED_KEY = 'c2stb3ItdjEtOTk3YzE4NmE0MmFhZDIwYzc2NmE3ODdiZTEzZTlmMzU2YTMzYTVmNGQwZTM3Y2Y2ZWQwMGYyNjNkMWFkYjcwMA==';
   const OPENROUTER_KEY = (typeof atob === 'function' ? atob(ENCODED_KEY) : Buffer.from(ENCODED_KEY, 'base64').toString('utf8'));
   const SITE_URL = 'https://demomed.local';
   const SITE_TITLE = 'DemoMed AI';
@@ -14,8 +14,11 @@
   const USER_NAME_KEY = 'demomedai_userName';
   const SKIP_KEY = 'demomedai_skip_intro';
   const START_DESTINATION = 'main_page.html';
-  const ERROR_MESSAGE = 'OUR SYSTEMS ARE FACING TECHNICAL PROBLEMS. KINDLY, CONTACT PRATYUSH TO RESOLVE THIS AS SOON AS POSSIBLE!';
   const SANITIZE_TOKEN = /<(?:\||\uFF5C)begin[\u2581_ ]?of[\u2581_ ]?sentence(?:\||\uFF5C)>/gi;
+
+  const PURPOSE_RESPONSE = 'I’m an AI assistant dedicated to the medical field. You can ask me questions and I’ll try to answer them. However, right now, no AI in the world can provide 100% accurate information, so please double-check everything.';
+  const SPECIAL_RESPONSE = 'I’m special because, unlike other models that are trained on a wide range of fields or domains, I’m trained specifically for the medical field only.';
+  const TYPING_HTML = '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
 
   const APP_GREETING_VARIANTS = [
     'Hello! Welcome to DemoMed AI, created by a specific group of Pratyush, Prabhakar, and Abhiraj as a school (LKCRMS) practical project for Batch 2025-26.',
@@ -87,6 +90,7 @@
   function initAppPage() {
     const chatArea = document.getElementById('chatArea');
     const userInput = document.getElementById('userInput');
+    const stopButton = document.getElementById('stopBtn');
     const noticeBanner = document.getElementById('noticeBanner');
     const noticeCloseBtn = document.getElementById('noticeCloseBtn');
     const weatherElements = {
@@ -102,6 +106,8 @@
     let weatherRefreshHandle = null;
     let isProcessing = false;
     let isRequesting = false;
+    let currentController = null;
+    let activeBotMessage = null;
 
     const setText = (element, value) => {
       if (element) {
@@ -128,25 +134,7 @@
       }
     };
 
-    const handleNotice = () => {
-      if (!noticeBanner) {
-        return;
-      }
-      if (noticeAutoHideHandle) {
-        clearTimeout(noticeAutoHideHandle);
-        noticeAutoHideHandle = null;
-      }
-      if (localStorage.getItem(NOTICE_KEY)) {
-        noticeBanner.classList.add('hidden');
-        return;
-      }
-      noticeBanner.classList.remove('hidden');
-      noticeAutoHideHandle = setTimeout(() => {
-        noticeBanner.classList.add('hidden');
-        localStorage.setItem(NOTICE_KEY, 'true');
-        noticeAutoHideHandle = null;
-      }, 10000);
-    };
+    const handleNotice = () => {};
 
     const setWeatherLoading = loading => {
       if (weatherElements.card) {
@@ -206,11 +194,25 @@
       return wrapper;
     };
 
+    const setStopButtonState = active => {
+      if (!stopButton) return;
+      stopButton.disabled = !active;
+      stopButton.classList.toggle('active', active);
+      stopButton.style.display = active ? 'block' : 'none';
+    };
+
+    const setMessageAsTyping = messageElement => {
+      const content = messageElement && messageElement.querySelector('.message-content');
+      if (content) {
+        content.innerHTML = TYPING_HTML;
+      }
+    };
+
     const showTyping = () => {
       const typing = document.createElement('div');
       typing.className = 'message bot';
       typing.id = 'typing';
-      typing.innerHTML = '<div class="message-avatar"><img src="logo.png" alt="DemoMed AI" onerror="this.style.display=\'none\'"></div><div class="message-content"><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>';
+      typing.innerHTML = `<div class="message-avatar"><img src="logo.png" alt="DemoMed AI" onerror="this.style.display='none'"></div><div class="message-content">${TYPING_HTML}</div>`;
       chatArea.appendChild(typing);
       chatArea.scrollTop = chatArea.scrollHeight;
     };
@@ -238,11 +240,13 @@
 
     const removeTempLabel = id => {
       document.querySelectorAll('.temp-label').forEach(label => {
-        if (label.dataset.id === id) {
+        if (!id || label.dataset.id === id) {
           label.remove();
         }
       });
     };
+
+    const clearAllTempLabels = () => removeTempLabel(null);
 
     const isBigOrMultiQuestion = text => {
       if (!text) {
@@ -253,11 +257,46 @@
       return text.length > 220 || questionMarks >= 2 || sentences >= 3;
     };
 
+    const tokenize = text => (text || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+
+    const levenshtein = (a, b) => {
+      if (a === b) return 0;
+      if (!a.length) return b.length;
+      if (!b.length) return a.length;
+      const dp = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+      for (let i = 0; i <= a.length; i++) dp[i][0] = i;
+      for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+      for (let i = 1; i <= a.length; i++) {
+        for (let j = 1; j <= b.length; j++) {
+          const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+          dp[i][j] = Math.min(
+            dp[i - 1][j] + 1,
+            dp[i][j - 1] + 1,
+            dp[i - 1][j - 1] + cost
+          );
+        }
+      }
+      return dp[a.length][b.length];
+    };
+
+    const fuzzyIncludes = (text, terms, maxDistance = 2) => {
+      const lower = (text || '').toLowerCase();
+      const tokens = tokenize(lower);
+      return terms.some(term => {
+        if (!term) return false;
+        const lowerTerm = term.toLowerCase();
+        if (lower.includes(lowerTerm)) return true;
+        return tokens.some(token => levenshtein(token, lowerTerm) <= maxDistance);
+      });
+    };
+
     const interceptResponse = text => {
       const lower = (text || '').toLowerCase();
       const greetingPattern = /(hi|hello|hey|hola|namaste|yo)\b/;
       const namePattern = /(what('| i)?s your name|who are you|ur name|your name|name\??)/;
       const creatorPattern = /(who (made|built|created) (you|this)|creator|developer|owner)/;
+      const specialPattern = /(why (are|r)? (you )?(so )?(special|different|unique)|what makes (you )?(special|different|unique)|how are you special)/;
+      const specialHints = ['special', 'unique', 'different'];
       if (namePattern.test(lower)) {
         return pickVariant(APP_NAME_VARIANTS);
       }
@@ -266,6 +305,9 @@
       }
       if (creatorPattern.test(lower)) {
         return pickVariant(APP_CREATOR_VARIANTS);
+      }
+      if (specialPattern.test(lower) || fuzzyIncludes(lower, specialHints)) {
+        return SPECIAL_RESPONSE;
       }
       return null;
     };
@@ -361,7 +403,9 @@
       }
       isRequesting = true;
       const controller = new AbortController();
+      currentController = controller;
       const timeout = setTimeout(() => controller.abort(), 15000);
+      let stallTimer = null;
       try {
         const response = await fetch(OPENROUTER_URL, {
           method: 'POST',
@@ -373,7 +417,7 @@
             Accept: 'text/event-stream'
           },
           body: JSON.stringify({
-            model: 'deepseek/deepseek-chat-v3.1:free',
+            model: 'amazon/nova-2-lite-v1:free',
             stream: true,
             messages: [{ role: 'user', content: userMessage }]
           }),
@@ -386,8 +430,9 @@
           throw new Error(text || response.statusText);
         }
         removeTyping();
+        contentElement.innerHTML = TYPING_HTML;
         let accumulated = '';
-        let stallTimer = setTimeout(() => showTempLabel('stall', 'GENERATING......'), 2500);
+        stallTimer = setTimeout(() => showTempLabel('stall', 'GENERATING......'), 2500);
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let clearedBigHint = false;
@@ -413,9 +458,9 @@
                 accumulated += sanitizeStreamText(delta);
                 contentElement.innerHTML = renderToHtml(accumulated);
                 chatArea.scrollTop = chatArea.scrollHeight;
-                removeTempLabel('stall');
-                clearTimeout(stallTimer);
-                stallTimer = setTimeout(() => showTempLabel('stall', 'GENERATING......'), 3000);
+        removeTempLabel('stall');
+        clearTimeout(stallTimer);
+        stallTimer = setTimeout(() => showTempLabel('stall', 'GENERATING......'), 3000);
                 if (!clearedBigHint) {
                   removeTempLabel('big-hint');
                   clearedBigHint = true;
@@ -426,18 +471,45 @@
             }
           }
         }
+        if (stallTimer) clearTimeout(stallTimer);
         removeTempLabel('stall');
         removeTempLabel('big-hint');
         saveMessages();
       } catch (error) {
+        if (stallTimer) clearTimeout(stallTimer);
         removeTempLabel('stall');
         removeTempLabel('big-hint');
         throw error;
       } finally {
         clearTimeout(timeout);
+        currentController = null;
         setTimeout(() => {
           isRequesting = false;
-        }, 1500);
+        }, 400);
+      }
+    };
+
+    const stopGeneration = () => {
+      if (isRequesting && currentController) {
+        currentController.abort();
+      }
+      removeTyping();
+      clearAllTempLabels();
+      isProcessing = false;
+      setStopButtonState(false);
+      if (activeBotMessage) {
+        const content = activeBotMessage.querySelector('.message-content');
+        if (content) {
+          content.textContent = 'Generation stopped by user.';
+        }
+        activeBotMessage = null;
+      }
+      if (userInput) {
+        userInput.disabled = false;
+      }
+      const sendButton = document.getElementById('sendBtn');
+      if (sendButton) {
+        sendButton.disabled = false;
       }
     };
 
@@ -475,16 +547,31 @@
       userInput.style.height = 'auto';
       showTyping();
       showTempHints(message);
+      setStopButtonState(true);
       try {
         const placeholder = addMessage('', 'bot');
+        activeBotMessage = placeholder;
+        setMessageAsTyping(placeholder);
         await streamMessageFromAPI(message, placeholder);
       } catch (error) {
         removeTyping();
-        addMessage(ERROR_MESSAGE, 'bot');
+        const aborted = error && error.name === 'AbortError';
+        if (aborted) {
+          const content = activeBotMessage && activeBotMessage.querySelector('.message-content');
+          if (content) {
+            content.textContent = 'Generation stopped by user.';
+          } else {
+            addMessage('Generation stopped by user.', 'bot');
+          }
+        } else {
+          const errorText = (error && (error.message || error.toString())) || 'Unknown error';
+          addMessage(`Error: ${errorText}`, 'bot');
+        }
       } finally {
-        removeTempLabel('stall');
-        removeTempLabel('big-hint');
+        clearAllTempLabels();
         isProcessing = false;
+        setStopButtonState(false);
+        activeBotMessage = null;
         userInput.disabled = false;
         const sendButtonFinal = document.getElementById('sendBtn');
         if (sendButtonFinal) {
@@ -541,17 +628,8 @@
       }
     };
 
-    if (noticeCloseBtn) {
-      noticeCloseBtn.addEventListener('click', () => {
-        if (noticeAutoHideHandle) {
-          clearTimeout(noticeAutoHideHandle);
-          noticeAutoHideHandle = null;
-        }
-        if (noticeBanner) {
-          noticeBanner.classList.add('hidden');
-        }
-        localStorage.setItem(NOTICE_KEY, 'true');
-      });
+    if (noticeBanner) {
+      noticeBanner.remove();
     }
 
     if (userInput) {
@@ -582,6 +660,8 @@
     window.closeModal = closeModal;
     window.confirmReset = confirmReset;
     window.insertQuery = insertQuery;
+    window.stopGeneration = stopGeneration;
+    setStopButtonState(false);
 
     handleNotice();
     loadMessages();
