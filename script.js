@@ -295,8 +295,27 @@
       const greetingPattern = /(hi|hello|hey|hola|namaste|yo)\b/;
       const namePattern = /(what('| i)?s your name|who are you|ur name|your name|name\??)/;
       const creatorPattern = /(who (made|built|created) (you|this)|creator|developer|owner)/;
-      const specialPattern = /(why (are|r)? (you )?(so )?(special|different|unique)|what makes (you )?(special|different|unique)|how are you special)/;
-      const specialHints = ['special', 'unique', 'different'];
+      const purposeHints = [
+        'what is your purpose',
+        'whats your purpose',
+        'your purpose',
+        'purpose',
+        'goal',
+        'what do you do',
+        'why are you here',
+        'why do you exist',
+        'how can you help',
+        'what are you used for'
+      ];
+      const specialHints = [
+        'why are you special',
+        'what makes you special',
+        'how are you special',
+        'you special',
+        'special',
+        'unique',
+        'different'
+      ];
       if (namePattern.test(lower)) {
         return pickVariant(APP_NAME_VARIANTS);
       }
@@ -306,7 +325,10 @@
       if (creatorPattern.test(lower)) {
         return pickVariant(APP_CREATOR_VARIANTS);
       }
-      if (specialPattern.test(lower) || fuzzyIncludes(lower, specialHints)) {
+      if (fuzzyIncludes(lower, purposeHints)) {
+        return PURPOSE_RESPONSE;
+      }
+      if (fuzzyIncludes(lower, specialHints)) {
         return SPECIAL_RESPONSE;
       }
       return null;
